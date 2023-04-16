@@ -47,8 +47,7 @@ function App() {
             onClick={handdleClic}
           >
             <span className='after:content-[""] after:absolute after:right-0 after:bottom-0 after:block after:w-0 after:h-full after:bg-[#afae81]/30 hover:after:w-full z-10 after:rounded-3xl after:transition-all after:duration-1000'>
-              <a className='-z-[100] ' href='#'>
-                {' '}
+              <a className='relative z-40 ' href='#'>
                 Iniciar Automata
               </a>
             </span>

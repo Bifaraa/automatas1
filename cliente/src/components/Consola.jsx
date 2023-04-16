@@ -5,8 +5,11 @@ import { TypingEffect } from './TypingEffect'
 export function Consola() {
   //TODO QUE LEA EL MISMO JSON QUE EL BACKEND
   const [respuesta, setRespuesta] = useState([])
+  const [visibleEjemplo, setVisibleEjemplo] = useState(false)
+  const [numeroUsuario, setNumeroUsuario] = useState('')
+  const [json, setJson] = useState([])
   const [visible, setVisible] = useState(false)
-  const [num, setNum] = useState('')
+  const [numRes, setNumRes] = useState('')
 
   useEffect(() => {
     const fetchRespuesta = async () => {
@@ -24,15 +27,19 @@ export function Consola() {
   ))
 
   const handdleClic = () => {
-    setVisible(!visible)
+    setVisibleEjemplo(!visibleEjemplo)
   }
 
   const atras = () => {
     if (visible === false) return console.log('no me puedo devolver')
     console.log('me devolvi')
-    setVisible(true)
+    setVisible(false)
+    setVisibleEjemplo(false)
+    setNumeroUsuario('')
+    setNumRes('')
   }
 
+  /*
   const handleSubmit = async (event) => {
     event.preventDefault()
     console.log(num)
@@ -42,11 +49,36 @@ export function Consola() {
     })
     const data = await res.json()
     console.log(data)
+  } */
+
+  const handleSubmit = async (event) => {
+    event.preventDefault()
+    const data = { num: numeroUsuario } // datos a enviar en el cuerpo de la petición
+    const options = {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(data),
+    }
+    const response = await fetch('http://localhost:3000/ejecutar', options)
+    const json = await response.json()
+    console.log(json)
+    setVisible(true)
+    setNumRes(json.data)
+  }
+
+  const fetchJSON = async () => {
+    const response = await fetch('http://localhost:3000/data')
+    const data = await response.json()
+    setJson(data.data)
+    console.log(json)
+    handdleClic()
   }
 
   return (
     <section className='w-[50%] min-h-[100%] flex justify-center mt-10 font-mono text-white '>
-      <article className='bg-[#816797]  w-[80%] max-h-[60%] min-h-[40%] flex items-start flex-col gap-4 rounded-lg shadow-xl shadow-black/40 overflow-auto '>
+      <article className='bg-[#816797]  w-[80%] max-h-[65%] min-h-[62%] flex items-start flex-col gap-4 rounded-lg shadow-xl shadow-black/40 overflow-auto '>
         <div className='w-full flex justify-center p-8 bg-[#51557E] rounded-lg shadow-sm relative'>
           <h2 className='text-2xl text-center '>Consola</h2>
           <div onClick={atras} className='absolute left-10 cursor-pointer'>
@@ -66,13 +98,13 @@ export function Consola() {
           </div>
         </div>
 
-        {visible ? (
+        {visibleEjemplo ? (
           <>
             <p className='text-xl text-center w-full'>
               Valores Evaluados por defecto:
             </p>
             <ul className='flex flex-col px-6 gap-6'>
-              {data.list.map((item, index) => (
+              {json.list.map((item, index) => (
                 <li key={index}>
                   <TypingEffect text={item.valor} speed={700} />{' '}
                 </li>
@@ -85,6 +117,17 @@ export function Consola() {
             </p>
             <ul className='flex flex-col gap-6 px-6'>{renderData}</ul>
           </>
+        ) : visible ? (
+          <>
+            <p className='text-xl text-center w-full'>Valorer evaluado:</p>
+            <TypingEffect text={numeroUsuario} speed={700} />{' '}
+            <h2 className='text-2xl w-full mt-5 text-center'>Salidas</h2>
+            <hr className='w-[90%] ' />
+            <p className='text-xl text-center w-full'>
+              Salida del valor evaluado:
+            </p>
+            <span className='mb-2'><TypingEffect text={numRes} speed={1} /></span>
+          </>
         ) : (
           <>
             <form
@@ -92,7 +135,7 @@ export function Consola() {
               className='w-[100%] flex flex-col items-center gap-5 text-black '
             >
               <input
-                onChange={(e) => setNum(e.target.value)}
+                onChange={(e) => setNumeroUsuario(e.target.value)}
                 className='h-10 text-center'
                 type='text'
               />
@@ -102,7 +145,7 @@ export function Consola() {
             </form>
             <button
               className='self-center text-md bg-[#D6D5A8] rounded-md text-black p-2 shadow-md shadow-black/30'
-              onClick={handdleClic}
+              onClick={fetchJSON}
             >
               Cargar ejemplo
             </button>

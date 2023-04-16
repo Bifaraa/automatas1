@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"os"
 	"strconv"
 
 	"github.com/gofiber/fiber/v2"
@@ -13,15 +14,17 @@ import (
 type Graph struct {
 	adjacencyList     map[string][]string
 	termina           map[string][]bool
+	inicial           map[string][]bool
 	adjacencyListPeso map[string]map[string][]int
 	mensaje           map[string][]string
 }
 
-func (g *Graph) AddNode(node string, termina bool, mensaje string) {
+func (g *Graph) AddNode(node string, termina bool, inicial bool, mensaje string) {
 	if _, ok := g.adjacencyList[node]; !ok {
 		g.adjacencyList[node] = []string{}
 		/* 		g.termina = make([]bool, 3) */
 		g.termina[node] = append(g.termina[node], termina)
+		g.inicial[node] = append(g.inicial[node], inicial)
 		/* g.mensaje = make(map[string][]string) */
 		g.adjacencyListPeso[node] = make(map[string][]int)
 		g.mensaje[node] = append(g.mensaje[node], mensaje)
@@ -233,14 +236,15 @@ func crearGrafo() Graph {
 	g := Graph{
 		adjacencyList:     make(map[string][]string),
 		termina:           make(map[string][]bool),
+		inicial:           make(map[string][]bool),
 		adjacencyListPeso: make(map[string]map[string][]int),
 		mensaje:           make(map[string][]string),
 	}
 
 	// agregar nodos
-	g.AddNode("a", false, "se trabo en el inicio")
-	g.AddNode("b", true, "Es par termina en 0")
-	g.AddNode("c", true, "Es par termina en 5")
+	g.AddNode("a", false, true, "se trabo en el inicio")
+	g.AddNode("b", true, false,"Es par termina en 0")
+	g.AddNode("c", true, false,"Es par termina en 5")
 	//g.AddNode("d", true, "activo lambda, es menor a cero")
 
 	pesosCero := []int{0}
@@ -276,6 +280,15 @@ func correrAutomata(g Graph) []string {
 	return result
 }
 
+func correrAutomataNumUser(g Graph, num []int) string {
+	//g := crearGrafo()
+	//g.PrintGraph()
+	//dotCode := g.GenerateDotCode()
+	res := g.RecorrerAutomata(num)
+	return res
+}
+
+/*
 func (g *Graph) GenerateDotCode() string {
 	nodeSet := make(map[string]bool)
 	edgeSet := make(map[string]bool)
@@ -302,9 +315,58 @@ func (g *Graph) GenerateDotCode() string {
 	dotCode += "}"
 	return dotCode
 }
+*/
+
+func (g *Graph) GenerateDotCode() string {
+	nodeSet := make(map[string]bool)
+	edgeSet := make(map[string]bool)
+	dotCode := "digraph {"
+
+	for src, dests := range g.adjacencyListPeso {
+		if !nodeSet[src] {
+			color := "black" // Por defecto, el color es negro
+			if g.termina[src][0] { // Si termina es verdadero, cambia el color a azul
+				color = "LightSkyBlue"
+			}
+			if g.inicial[src][0] { // Si es el primer nodo, cambia el color a amarillo
+				color = "LightSalmon"
+			}
+			dotCode += fmt.Sprintf("%s [label=\"%s\", style=\"filled\", fillcolor=\"%s\"];", src, src, color)
+			nodeSet[src] = true
+		}
+		for dest, pesos := range dests {
+			edge := fmt.Sprintf("%s -> %s [label=\"%v\"]", src, dest, pesos)
+			if !edgeSet[edge] {
+				dotCode += fmt.Sprintf("%s;", edge)
+				edgeSet[edge] = true
+			}
+			if !nodeSet[dest] {
+				color := "black" // Por defecto, el color es negro
+				if g.termina[dest][0] { // Si termina es verdadero, cambia el color a azul
+					color = "blue"
+				}
+				dotCode += fmt.Sprintf("%s [label=\"%s\", style=\"filled\", fillcolor=\"%s\"];", dest, dest, color)
+				nodeSet[dest] = true
+			}
+		}
+	}
+
+	dotCode += "}"
+	return dotCode
+}
 
 type Num struct {
 	numero string `json:"num"`
+}
+
+func descomponerNumero(num int) []int {
+    var digitos []int
+    for num > 0 {
+        digito := num % 10
+        digitos = append([]int{digito}, digitos...)
+        num /= 10
+    }
+    return digitos
 }
 
 func main() {
@@ -315,11 +377,21 @@ func main() {
 
 	//g.PrintGraph()
 	/* arregloPrueba := []int{2, 5, 5} */
-
 	g := crearGrafo()
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "3000"
+	}
 
 	app := fiber.New()
-	app.Use(cors.New())
+	app.Use(cors.New(cors.Config{
+		AllowOrigins: "http://localhost:5173",
+		AllowHeaders: "Origin, Content-Type, Accept",
+	}))
+	
+
+	app.Static("/", "./cliente/dist")
+
 	app.Get("/run", func(c *fiber.Ctx) error {
 		result := correrAutomata(g)
 		return c.JSON(&fiber.Map{
@@ -348,16 +420,24 @@ func main() {
 			"data": datos,
 		})
 	})
+
 	app.Post("/ejecutar", func(c *fiber.Ctx) error {
-		p := new(Num)
-		if err := c.BodyParser(p); err != nil {
+		var p map[string]interface{}
+		if err := c.BodyParser(&p); err != nil {
 			return err
 		}
-		fmt.Println(p.numero)
+		num, err := strconv.Atoi(fmt.Sprintf("%v", p["num"]))
+		if err != nil {
+			return err
+		}
+		nums := descomponerNumero(num)
+		fmt.Printf("nums: %+v\n", nums)
+		res := correrAutomataNumUser(g, nums)
 		return c.JSON(&fiber.Map{
-			"data": "ok",
+			"data": res,
 		})
 	})
-	app.Listen(":3000")
+	
+	app.Listen(":"+port)
 
 }
